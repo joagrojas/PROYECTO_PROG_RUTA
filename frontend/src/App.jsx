@@ -8,6 +8,7 @@ import Reportes from './pages/Reportes';
 import ReportesDelito from './pages/ReportesDelito';
 import Usuarios from './pages/Usuarios';
 import NotFound from './pages/NotFound';
+import RutaSegura from './pages/RutaSegura';
 
 // Componente para proteger rutas
 function ProtectedRoute({ children, requireAdmin = false }) {
@@ -56,7 +57,7 @@ function App() {
           <Route path="siniestros" element={<Siniestros />} />
           <Route path="reportes" element={<Reportes />} />
           <Route path="reportes-delito" element={<ReportesDelito />} />
-          
+          <Route path="/ruta-segura" element={<RutaSegura />} />  {/* ← NUEVA RUTA */}
           {/* Ruta solo para admin */}
           <Route
             path="usuarios"

@@ -5,7 +5,7 @@ Incluye INNER JOIN, GROUP BY y Subconsultas para cumplir requisitos del TP
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 # ========================================
 # CONSULTA 1: INNER JOIN
@@ -323,3 +323,4 @@ async def obtener_top_marcas_involucradas(db: AsyncSession, limit: int = 10) -> 
         }
         for r in rows
     ]
+

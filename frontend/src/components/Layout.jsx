@@ -10,7 +10,8 @@ import {
   Users, 
   LogOut,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function Layout(/* { children } */) {
@@ -23,6 +24,7 @@ export default function Layout(/* { children } */) {
     { name: 'Siniestros', href: '/siniestros', icon: Car },
     { name: 'Reportes', href: '/reportes', icon: BarChart3 },
     { name: 'Reportes Delictivos', href: '/reportes-delito', icon: AlertTriangle },
+    { name: 'Ruta Segura', href: '/ruta-segura', icon: ShieldCheck },
     ...(isAdmin() ? [{ name: 'Usuarios', href: '/usuarios', icon: Users }] : []),
   ];
 

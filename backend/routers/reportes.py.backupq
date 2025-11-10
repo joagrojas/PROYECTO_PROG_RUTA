@@ -1,8 +1,10 @@
 """
 Router de reportes y estadísticas
+- Reportes originales (Siniestros)
+- Reportes de Índice de Seguridad (Combinado)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import text
@@ -10,14 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Optional
 from decimal import Decimal
 import logging
-from sqlalchemy.exc import ProgrammingError
+from datetime import timedelta, date, time
 
 from config.database import get_db
+# Importamos AMBOS servicios
 from services import reportes as reportes_service
-from services import analisis_seguridad
-from services.auth import obtener_usuario_actual
+from services import analisis_seguridad # <--- NUEVO IMPORT
+from services.auth import obtener_usuario_actual # <--- USAMOS LA DEPENDENCIA CORREGIDA
 
-router = APIRouter(prefix="/reportes", tags=["Reportes"])
+router = APIRouter(prefix="/reportes", tags=["Reportes y Análisis"])
 
 def _serialize_row(row) -> Dict:
     if not row:
@@ -222,7 +225,7 @@ async def estadisticas(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         logging.exception("Error en estadisticas")
         return JSONResponse(content={"detail": "Error interno"}, status_code=500)
-    
+
 # ========================================
 # NUEVOS ENDPOINTS PARA ANÁLISIS DE SEGURIDAD
 # ========================================
