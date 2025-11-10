@@ -1,0 +1,4 @@
+id;email;nombre;rol;fecha_registro
+1;admin@transitolarioja.gob.ar;Maria Gonzalez;admin;15/01/2024
+2;editor@transitolarioja.gob.ar;Carlos Rodriguez;editor;15/01/2024
+3;consultor@transitolarioja.gob.ar;Ana Martinez;consultor;15/01/2024

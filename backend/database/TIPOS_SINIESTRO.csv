@@ -1,0 +1,5 @@
+id;nombre;gravedad
+1;Colision entre vehiculos;media
+2;Atropello a peaton;alta
+3;Vuelco;alta
+4;Choque con objeto fijo;baja

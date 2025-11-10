@@ -1,0 +1,25 @@
+from fastapi import APIRouter, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..schemas.siniestro import SiniestroOut, SiniestroCreate, SiniestroResponse, SiniestroUpdate
+
+router = APIRouter()
+
+@router.post("/siniestros/", response_model=SiniestroResponse)
+async def create_siniestro(siniestro: SiniestroCreate, db: AsyncSession):
+    # Lógica para crear un siniestro
+    pass
+
+@router.get("/siniestros/{siniestro_id}", response_model=SiniestroResponse)
+async def read_siniestro(siniestro_id: int, db: AsyncSession):
+    # Lógica para leer un siniestro
+    pass
+
+@router.put("/siniestros/{siniestro_id}", response_model=SiniestroResponse)
+async def update_siniestro(siniestro_id: int, siniestro: SiniestroUpdate, db: AsyncSession):
+    # Lógica para actualizar un siniestro
+    pass
+
+@router.delete("/siniestros/{siniestro_id}", response_model=SiniestroResponse)
+async def delete_siniestro(siniestro_id: int, db: AsyncSession):
+    # Lógica para eliminar un siniestro
+    pass

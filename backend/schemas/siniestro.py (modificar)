@@ -1,0 +1,29 @@
+class SiniestroOut:
+    def __init__(self, id, descripcion, estado):
+        self.id = id
+        self.descripcion = descripcion
+        self.estado = estado
+
+class SiniestroCreate:
+    def __init__(self, descripcion, estado):
+        self.descripcion = descripcion
+        self.estado = estado
+
+class SiniestroUpdate:
+    def __init__(self, descripcion=None, estado=None):
+        self.descripcion = descripcion
+        self.estado = estado
+
+class SiniestroResponse:
+    def __init__(self, id, descripcion, estado):
+        self.id = id
+        self.descripcion = descripcion
+        self.estado = estado
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
+
+status = {
+    "success": "success",
+    "error": "error"
+}

@@ -1,0 +1,9 @@
+id;nombre;tipo;zona;longitud_km
+1;Av. Peron;avenida;centro;3.2
+2;2 de Abril;avenida;norte;2.8
+3;1ra de Marzo;avenida;sur;2.5
+4;San Francisco;avenida;oeste;3.0
+5;San Nicolas de Bari;avenida;este;2.2
+6;Santa Rosa;avenida;centro;1.8
+7;Ruta 38;ruta;norte-sur;15.5
+8;Ruta 5;ruta;este-oeste;12.3

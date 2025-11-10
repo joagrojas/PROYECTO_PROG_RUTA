@@ -1,0 +1,25 @@
+fecha,hora,avenida_id,tipo_delito,nivel_peligrosidad,descripcion,usuario_id
+2024-10-15,20:30:00,1,robo,alta,Robo a mano armada en intersección con Av. San Martín,1
+2024-10-16,22:15:00,2,asalto,alta,Asalto a transeúnte cerca de parada de colectivo,1
+2024-10-17,19:45:00,3,hurto,media,Hurto de cartera en zona céntrica comercial,2
+2024-10-18,21:00:00,1,robo,media,Robo de celular a motociclista detenido en semáforo,2
+2024-10-19,23:30:00,5,vandalismo,baja,Daños a propiedad privada graffiti en pared,1
+2024-10-20,18:30:00,4,hurto,media,Hurto en comercio sustracción de mercadería,2
+2024-10-21,22:45:00,1,asalto,alta,Asalto con arma blanca en zona oscura,1
+2024-10-22,20:00:00,6,robo,alta,Robo de vehículo estacionado,2
+2024-10-23,19:15:00,2,hurto,baja,Hurto menor robo de bicicleta,1
+2024-10-24,21:30:00,3,robo,media,Robo de accesorios de auto,2
+2024-10-25,23:00:00,7,asalto,alta,Asalto en ruta zona poco iluminada,1
+2024-10-26,20:15:00,8,robo,media,Robo a conductor en Ruta 5,2
+2024-10-27,18:45:00,1,hurto,baja,Hurto en estacionamiento público,1
+2024-10-28,22:30:00,2,vandalismo,baja,Rotura de vidrios de local comercial,2
+2024-10-29,21:15:00,4,robo,alta,Robo con intimidación a peatón,1
+2024-11-01,20:45:00,1,asalto,alta,Asalto grupal a transeúnte,2
+2024-11-02,19:30:00,5,hurto,media,Sustracción de pertenencias en transporte público,1
+2024-11-03,22:00:00,3,robo,media,Robo de cartera a mujer caminando sola,2
+2024-11-04,23:15:00,6,asalto,alta,Asalto con forcejeo víctima con lesiones leves,1
+2024-11-05,21:45:00,2,robo,media,Robo de celular mediante arrebato,2
+2024-11-06,20:00:00,1,hurto,baja,Hurto en supermercado,1
+2024-11-07,22:30:00,4,robo,alta,Robo a mano armada en cajero automático,2
+2024-11-08,19:00:00,3,asalto,media,Asalto en vía pública,1
+2024-11-09,21:00:00,5,vandalismo,baja,Pintadas en propiedad municipal,2
