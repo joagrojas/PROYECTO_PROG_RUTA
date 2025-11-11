@@ -23,22 +23,11 @@ class SiniestroBase(BaseModel):
 
 class SiniestroCreate(SiniestroBase):
     """Schema para crear siniestro"""
-    usuario_id: Optional[int] = None  # Ahora es opcional, se toma del token
+    usuario_id: int = Field(..., gt=0)
 
-class SiniestroUpdate(BaseModel):
-    """Schema para actualizar siniestro - todos los campos opcionales"""
-    fecha: Optional[date] = None
-    hora: Optional[time] = None
-    avenida_id: Optional[int] = None
-    tipo_id: Optional[int] = None
-    nivel_gravedad: Optional[str] = None
-    victimas_fatales: Optional[int] = None
-    heridos: Optional[int] = None
-    num_vehiculos: Optional[int] = None
-    observaciones: Optional[str] = None
-    
-    class Config:
-        from_attributes = True
+class SiniestroUpdate(SiniestroBase):
+    """Schema para actualizar siniestro"""
+    pass
 
 class SiniestroOut(SiniestroBase):
     """Schema para respuesta de siniestro"""

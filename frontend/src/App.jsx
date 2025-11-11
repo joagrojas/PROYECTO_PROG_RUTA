@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Siniestros from './pages/Siniestros';
-import Reportes from './pages/Reportes';
+//import Reportes from './pages/Reportes';
 import ReportesDelito from './pages/ReportesDelito';
 import Usuarios from './pages/Usuarios';
 import NotFound from './pages/NotFound';
@@ -55,7 +55,7 @@ function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="siniestros" element={<Siniestros />} />
-          <Route path="reportes" element={<Reportes />} />
+          
           <Route path="reportes-delito" element={<ReportesDelito />} />
           <Route path="/ruta-segura" element={<RutaSegura />} />  {/* ← NUEVA RUTA */}
           {/* Ruta solo para admin */}

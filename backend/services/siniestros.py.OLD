@@ -8,40 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import logging
 from schemas.siniestro import SiniestroCreate, SiniestroUpdate
-from datetime import time, timedelta
 
-def _to_time(value):
-    """Convierte timedelta/string a datetime.time o devuelve None/valor si ya es time."""
-    if value is None:
-        return None
-    if isinstance(value, time):
-        return value
-    # MySQL TIME a veces viene como timedelta
-    if isinstance(value, timedelta):
-        total = int(value.total_seconds())
-        hh = (total // 3600) % 24
-        mm = (total % 3600) // 60
-        ss = total % 60
-        return time(hh, mm, ss)
-    # Si viene como string (ej. "20:00:00") dejarlo pasar y que pydantic lo parseé
-    return value
-
-async def crear_siniestro(db: AsyncSession, siniestro: SiniestroCreate, usuario_id: int = None) -> dict:
-    """Crea un nuevo siniestro con cálculo automático de día de semana"""
-    # Calcular día de semana y fin de semana si hay fecha
-    dia_semana = None
-    es_fin_de_semana = False
-    
-    if siniestro.fecha:
-        # weekday() devuelve 0=Lunes, 6=Domingo
-        dias_nombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-        dia_num = siniestro.fecha.weekday()
-        dia_semana = dias_nombres[dia_num]
-        es_fin_de_semana = dia_num >= 5  # Sábado=5, Domingo=6
-    
-    # Usar el usuario_id pasado como parámetro o el del objeto siniestro
-    user_id = usuario_id if usuario_id else siniestro.usuario_id
-    
+async def crear_siniestro(db: AsyncSession, siniestro: SiniestroCreate) -> dict:
+    """Crea un nuevo siniestro"""
     query = text("""
         INSERT INTO siniestros (
             fecha, hora, avenida_id, tipo_id, nivel_gravedad,
@@ -63,9 +32,9 @@ async def crear_siniestro(db: AsyncSession, siniestro: SiniestroCreate, usuario_
         "victimas_fatales": siniestro.victimas_fatales,
         "heridos": siniestro.heridos,
         "num_vehiculos": siniestro.num_vehiculos,
-        "dia_semana": dia_semana,
-        "es_fin_de_semana": es_fin_de_semana,
-        "usuario_id": user_id,
+        "dia_semana": siniestro.dia_semana,
+        "es_fin_de_semana": siniestro.es_fin_de_semana,
+        "usuario_id": siniestro.usuario_id,
         "observaciones": siniestro.observaciones
     }
     
@@ -106,7 +75,7 @@ async def obtener_siniestro_por_id(db: AsyncSession, siniestro_id: int) -> Optio
     return {
         "id": siniestro.id,
         "fecha": siniestro.fecha,
-        "hora": _to_time(siniestro.hora),
+        "hora": siniestro.hora,
         "avenida_id": siniestro.avenida_id,
         "tipo_id": siniestro.tipo_id,
         "nivel_gravedad": siniestro.nivel_gravedad,
@@ -181,7 +150,7 @@ async def obtener_todos_siniestros(
         {
             "id": s.id,
             "fecha": s.fecha,
-            "hora": _to_time(s.hora),
+            "hora": s.hora,
             "avenida_id": s.avenida_id,
             "tipo_id": s.tipo_id,
             "nivel_gravedad": s.nivel_gravedad,
@@ -202,25 +171,13 @@ async def obtener_todos_siniestros(
     ]
 
 async def actualizar_siniestro(db: AsyncSession, siniestro_id: int, siniestro_update: SiniestroUpdate) -> Optional[dict]:
-    """Actualiza siniestro con cálculo automático de día de semana"""
+    """Actualiza siniestro"""
     campos_actualizar = []
     valores = {"id": siniestro_id}
     
-    # Calcular día de semana si se actualiza la fecha
     if siniestro_update.fecha is not None:
         campos_actualizar.append("fecha = :fecha")
         valores["fecha"] = siniestro_update.fecha
-        
-        # Calcular automáticamente día de semana y fin de semana
-        dias_nombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-        dia_num = siniestro_update.fecha.weekday()
-        dia_semana = dias_nombres[dia_num]
-        es_fin_de_semana = dia_num >= 5
-        
-        campos_actualizar.append("dia_semana = :dia_semana")
-        valores["dia_semana"] = dia_semana
-        campos_actualizar.append("es_fin_de_semana = :es_fin_de_semana")
-        valores["es_fin_de_semana"] = es_fin_de_semana
     
     if siniestro_update.hora is not None:
         campos_actualizar.append("hora = :hora")
@@ -250,6 +207,14 @@ async def actualizar_siniestro(db: AsyncSession, siniestro_id: int, siniestro_up
         campos_actualizar.append("num_vehiculos = :num_vehiculos")
         valores["num_vehiculos"] = siniestro_update.num_vehiculos
     
+    if siniestro_update.dia_semana is not None:
+        campos_actualizar.append("dia_semana = :dia_semana")
+        valores["dia_semana"] = siniestro_update.dia_semana
+    
+    if siniestro_update.es_fin_de_semana is not None:
+        campos_actualizar.append("es_fin_de_semana = :es_fin_de_semana")
+        valores["es_fin_de_semana"] = siniestro_update.es_fin_de_semana
+    
     if siniestro_update.observaciones is not None:
         campos_actualizar.append("observaciones = :observaciones")
         valores["observaciones"] = siniestro_update.observaciones
@@ -268,7 +233,7 @@ async def actualizar_siniestro(db: AsyncSession, siniestro_id: int, siniestro_up
     
     return await obtener_siniestro_por_id(db, siniestro_id)
 
-# CORREGIDO: Función simplificada sin dependencias de modelos
+# ✅ CORREGIDO: Función simplificada sin dependencias de modelos
 async def eliminar_siniestro(db: AsyncSession, siniestro_id: int, usuario_id: int, es_admin: bool = False) -> bool:
     """
     Elimina un siniestro verificando permisos
@@ -341,7 +306,7 @@ async def contar_siniestros(
     
     return row.total if row else 0
 
-# FUNCIÓN ALTERNATIVA: Si prefieres mantener el nombre original pero sin modelos
+# ✅ FUNCIÓN ALTERNATIVA: Si prefieres mantener el nombre original pero sin modelos
 async def delete_siniestro(db: AsyncSession, siniestro_id: int, usuario_id: int, es_admin: bool = False) -> bool:
     """Alias para eliminar_siniestro - mantiene compatibilidad"""
     return await eliminar_siniestro(db, siniestro_id, usuario_id, es_admin)

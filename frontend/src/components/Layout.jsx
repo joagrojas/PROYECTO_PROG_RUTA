@@ -20,9 +20,9 @@ export default function Layout(/* { children } */) {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Reportes', href: '/', icon: Home },
     { name: 'Siniestros', href: '/siniestros', icon: Car },
-    { name: 'Reportes', href: '/reportes', icon: BarChart3 },
+    //{ name: 'Reportes', href: '/reportes', icon: BarChart3 },
     { name: 'Reportes Delictivos', href: '/reportes-delito', icon: AlertTriangle },
     { name: 'Ruta Segura', href: '/ruta-segura', icon: ShieldCheck },
     ...(isAdmin() ? [{ name: 'Usuarios', href: '/usuarios', icon: Users }] : []),

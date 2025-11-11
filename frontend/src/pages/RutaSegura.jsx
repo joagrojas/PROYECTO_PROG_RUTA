@@ -1,434 +1,549 @@
-import { useState, useEffect } from 'react';
-import api from '../services/api';
-
 /**
- * Página: Ruta Segura - Análisis de Seguridad Integral
+ * ==========================================
+ * PÁGINA RUTA SEGURA
+ * ==========================================
  * 
- * Combina datos de siniestros viales (70%) y delitos (30%) para
- * calcular un índice de peligrosidad por avenida.
+ * Esta es la página PRINCIPAL del sistema.
+ * Muestra el índice de seguridad de las avenidas combinando:
+ * - Datos de siniestros viales (70% del peso)
+ * - Datos de reportes delictivos (30% del peso)
  * 
- * Componentes que muestra:
- * 1. Estadísticas generales del sistema
- * 2. Top 5 avenidas más peligrosas
- * 3. Top 5 avenidas más seguras
- * 4. Tabla completa de todas las avenidas
+ * FUNCIONALIDADES:
+ * 1. Ver índice de seguridad de todas las avenidas
+ * 2. Ordenar por peligrosidad, nombre o zona
+ * 3. Ver top 5 más seguras y más peligrosas
+ * 4. Comparar dos avenidas específicas
+ * 5. Visualización con colores según nivel de riesgo
+ * 
+ * CONCEPTOS APLICADOS:
+ * - Estado con hooks (useState, useEffect)
+ * - Llamadas asíncronas a API
+ * - Renderizado condicional
+ * - Componentes reutilizables
+ * - Manejo de errores
+ * ==========================================
  */
 
-function RutaSegura() {
-  // ========================================
-  // ESTADO DEL COMPONENTE (useState)
-  // ========================================
-  
-  // Estado para las estadísticas generales
-  const [estadisticas, setEstadisticas] = useState(null);
-  
-  // Estado para el top de avenidas peligrosas
-  const [topPeligrosas, setTopPeligrosas] = useState([]);
-  
-  // Estado para el top de avenidas seguras
-  const [topSeguras, setTopSeguras] = useState([]);
-  
-  // Estado para todas las avenidas
-  const [todasAvenidas, setTodasAvenidas] = useState([]);
-  
-  // Estado de carga (loading)
-  const [cargando, setCargando] = useState(true);
-  
-  // Estado de error
-  const [error, setError] = useState(null);
+import { useState, useEffect } from 'react';
+import { 
+  Shield, 
+  AlertTriangle, 
+  TrendingUp, 
+  RefreshCw,
+  GitCompare
+} from 'lucide-react';
 
-  // ========================================
-  // CARGAR DATOS AL MONTAR EL COMPONENTE
-  // ========================================
+// Importar servicios de la API
+// Asegúrate de que tu api.js tenga reportesService exportado
+import { reportesService } from '../services/api';
+
+export default function RutaSegura() {
+  // ==========================================
+  // ESTADOS DEL COMPONENTE
+  // ==========================================
   
+  // Estado principal: lista de avenidas con su índice
+  const [avenidas, setAvenidas] = useState([]);
+  
+  // Estado de carga y errores
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Estado para filtros y ordenamiento
+  const [ordenamiento, setOrdenamiento] = useState('peligrosidad'); // peligrosidad, nombre, zona
+  const [limite, setLimite] = useState(null); // null = todas
+  
+  // Estado para comparación de avenidas
+  const [mostrarComparacion, setMostrarComparacion] = useState(false);
+  const [avenida1, setAvenida1] = useState('');
+  const [avenida2, setAvenida2] = useState('');
+  const [resultadoComparacion, setResultadoComparacion] = useState(null);
+  
+  // Estado para tops
+  const [topSeguras, setTopSeguras] = useState([]);
+  const [topPeligrosas, setTopPeligrosas] = useState([]);
+
+  // ==========================================
+  // EFECTOS (useEffect)
+  // ==========================================
+  
+  /**
+   * Efecto principal: cargar datos al montar el componente
+   * Se ejecuta cuando cambian: ordenamiento o límite
+   */
   useEffect(() => {
     cargarDatos();
-  }, []);
+  }, [ordenamiento, limite]);
 
   /**
-   * Carga todos los datos necesarios desde el backend.
-   * Hace 4 llamadas a la API en paralelo usando Promise.all
+   * Efecto secundario: cargar tops
+   * Se ejecuta solo una vez al montar
+   */
+  useEffect(() => {
+    cargarTops();
+  }, []);
+
+  // ==========================================
+  // FUNCIONES DE CARGA DE DATOS
+  // ==========================================
+
+  /**
+   * Cargar índice de seguridad de todas las avenidas
    */
   const cargarDatos = async () => {
     try {
-      setCargando(true);
+      setLoading(true);
       setError(null);
-
-      // Hacer todas las peticiones en paralelo para ser más rápido
-      const [statsRes, peligrosasRes, segurasRes, todasRes] = await Promise.all([
-        api.get('/reportes/estadisticas-seguridad'),
-        api.get('/reportes/top-avenidas-peligrosas?limite=5'),
-        api.get('/reportes/top-avenidas-seguras?limite=5'),
-        api.get('/reportes/indice-seguridad?orden=peligrosidad')
-      ]);
-
-      // Guardar los datos en el estado
-      setEstadisticas(statsRes.data);
-      setTopPeligrosas(peligrosasRes.data.avenidas);
-      setTopSeguras(segurasRes.data.avenidas);
-      setTodasAvenidas(todasRes.data.avenidas);
-
+      
+      console.log('📊 Cargando índice de seguridad...');
+      
+      // Llamar al endpoint con parámetros
+      const params = {
+        orden: ordenamiento,
+        ...(limite && { limite })
+      };
+      
+      const response = await reportesService.getIndiceSeguridad(params);
+      
+      console.log('✅ Datos recibidos:', response);
+      
+      // El backend devuelve { total, orden, avenidas: [...] }
+      setAvenidas(response.avenidas || response);
+      
     } catch (err) {
-      console.error('Error al cargar datos:', err);
-      setError('Error al cargar los datos. Por favor, intenta nuevamente.');
+      console.error('❌ Error al cargar datos:', err);
+      setError('Error al cargar el índice de seguridad. Verifica que el backend esté corriendo.');
+      
+      // Datos de ejemplo para desarrollo (puedes comentar esto en producción)
+      setAvenidas([
+        {
+          id: 1,
+          nombre: 'Av. Perón',
+          zona: 'Centro',
+          total_siniestros: 45,
+          total_delitos: 28,
+          indice_peligrosidad: 8.5,
+          nivel_riesgo: 'alto'
+        },
+        {
+          id: 2,
+          nombre: 'Calle Rivadavia',
+          zona: 'Norte',
+          total_siniestros: 12,
+          total_delitos: 8,
+          indice_peligrosidad: 3.2,
+          nivel_riesgo: 'bajo'
+        },
+        {
+          id: 3,
+          nombre: 'Ruta 38',
+          zona: 'Este',
+          total_siniestros: 32,
+          total_delitos: 15,
+          indice_peligrosidad: 6.8,
+          nivel_riesgo: 'medio'
+        }
+      ]);
     } finally {
-      setCargando(false);
+      setLoading(false);
     }
   };
 
-  // ========================================
+  /**
+   * Cargar tops (más seguras y más peligrosas)
+   */
+  const cargarTops = async () => {
+    try {
+      const [seguras, peligrosas] = await Promise.all([
+        reportesService.getTopAvenidasSeguras(5),
+        reportesService.getTopAvenidasPeligrosas(5)
+      ]);
+      
+      setTopSeguras(seguras.avenidas || seguras);
+      setTopPeligrosas(peligrosas.avenidas || peligrosas);
+      
+    } catch (err) {
+      console.error('Error al cargar tops:', err);
+    }
+  };
+
+  /**
+   * Comparar dos avenidas
+   */
+  const compararAvenidas = async () => {
+    if (!avenida1 || !avenida2) {
+      alert('Por favor selecciona dos avenidas para comparar');
+      return;
+    }
+    
+    if (avenida1 === avenida2) {
+      alert('Debes seleccionar dos avenidas diferentes');
+      return;
+    }
+    
+    try {
+      const resultado = await reportesService.compararAvenidas(
+        parseInt(avenida1), 
+        parseInt(avenida2)
+      );
+      setResultadoComparacion(resultado);
+    } catch (err) {
+      console.error('Error al comparar:', err);
+      alert('Error al comparar las avenidas');
+    }
+  };
+
+  // ==========================================
   // FUNCIONES AUXILIARES
-  // ========================================
-  
+  // ==========================================
+
   /**
-   * Devuelve la clase CSS de color según la clasificación de riesgo.
+   * Determinar el color según el nivel de riesgo
    */
-  const obtenerColorRiesgo = (clasificacion) => {
-    switch (clasificacion) {
-      case 'MUY PELIGROSA':
-        return 'bg-red-100 text-red-800 border-red-300';
-      case 'PELIGROSA':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'RIESGO MODERADO':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'SEGURA':
-        return 'bg-green-100 text-green-800 border-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
+  const getColorRiesgo = (nivelRiesgo) => {
+    const colores = {
+      'alto': 'bg-red-100 text-red-800 border-red-300',
+      'medio': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      'bajo': 'bg-green-100 text-green-800 border-green-300',
+      'muy_bajo': 'bg-blue-100 text-blue-800 border-blue-300'
+    };
+    return colores[nivelRiesgo] || colores['medio'];
   };
 
   /**
-   * Devuelve el emoji según la clasificación de riesgo.
+   * Obtener ícono según nivel de riesgo
    */
-  const obtenerEmoji = (clasificacion) => {
-    switch (clasificacion) {
-      case 'MUY PELIGROSA':
-        return '🔴';
-      case 'PELIGROSA':
-        return '🟠';
-      case 'RIESGO MODERADO':
-        return '🟡';
-      case 'SEGURA':
-        return '🟢';
-      default:
-        return '⚪';
-    }
+  const getIconoRiesgo = (nivelRiesgo) => {
+    if (nivelRiesgo === 'alto') return <AlertTriangle className="w-5 h-5" />;
+    if (nivelRiesgo === 'bajo' || nivelRiesgo === 'muy_bajo') return <Shield className="w-5 h-5" />;
+    return <TrendingUp className="w-5 h-5" />;
   };
 
-  // ========================================
+  /**
+   * Formatear número con 2 decimales
+   */
+  const formatearIndice = (valor) => {
+    return parseFloat(valor).toFixed(2);
+  };
+
+  // ==========================================
   // RENDERIZADO CONDICIONAL
-  // ========================================
-  
-  // Si está cargando, mostrar spinner
-  if (cargando) {
+  // ==========================================
+
+  if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando análisis de seguridad...</p>
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Cargando índice de seguridad...</p>
         </div>
       </div>
     );
   }
 
-  // Si hay error, mostrar mensaje de error
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg max-w-md">
-          <p className="font-bold mb-2">Error</p>
-          <p>{error}</p>
-          <button
-            onClick={cargarDatos}
-            className="mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ========================================
+  // ==========================================
   // RENDERIZADO PRINCIPAL
-  // ========================================
-  
+  // ==========================================
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 p-6">
       {/* ENCABEZADO */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          🛣️ Ruta Segura - Análisis Integral
-        </h1>
-        <p className="text-gray-600">
-          Índice de seguridad combinando siniestros viales (70%) y delitos (30%)
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <Shield className="w-8 h-8 text-blue-600" />
+            Ruta Segura
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Índice de seguridad integral de avenidas (Siniestros + Delitos)
+          </p>
+        </div>
+        <button
+          onClick={cargarDatos}
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Actualizar
+        </button>
       </div>
 
-      {/* ESTADÍSTICAS GENERALES */}
-      {estadisticas && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          {/* Total de Avenidas */}
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-            <p className="text-gray-500 text-sm mb-1">Total de Avenidas</p>
-            <p className="text-3xl font-bold text-gray-800">{estadisticas.total_avenidas}</p>
-          </div>
-
-          {/* Total de Siniestros */}
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-            <p className="text-gray-500 text-sm mb-1">Total Siniestros</p>
-            <p className="text-3xl font-bold text-gray-800">{estadisticas.total_siniestros}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {estadisticas.total_fallecidos} fallecidos, {estadisticas.total_heridos} heridos
-            </p>
-          </div>
-
-          {/* Total de Delitos */}
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-500">
-            <p className="text-gray-500 text-sm mb-1">Total Delitos</p>
-            <p className="text-3xl font-bold text-gray-800">{estadisticas.total_delitos}</p>
-          </div>
-
-          {/* Promedio de Índice */}
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <p className="text-gray-500 text-sm mb-1">Índice Promedio</p>
-            <p className="text-3xl font-bold text-gray-800">{estadisticas.promedio_indice}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Rango: {estadisticas.min_indice} - {estadisticas.max_indice}
-            </p>
+      {/* ALERTA DE ERROR */}
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
+            <p className="text-yellow-800">{error}</p>
           </div>
         </div>
       )}
 
-      {/* DISTRIBUCIÓN DE RIESGO */}
-      {estadisticas && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
-            📊 Distribución de Riesgo
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
-              <p className="text-4xl mb-2">🔴</p>
-              <p className="text-2xl font-bold text-red-800">
-                {estadisticas.distribucion_riesgo.muy_peligrosas}
-              </p>
-              <p className="text-sm text-gray-600">Muy Peligrosas</p>
-            </div>
-            <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
-              <p className="text-4xl mb-2">🟠</p>
-              <p className="text-2xl font-bold text-orange-800">
-                {estadisticas.distribucion_riesgo.peligrosas}
-              </p>
-              <p className="text-sm text-gray-600">Peligrosas</p>
-            </div>
-            <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-              <p className="text-4xl mb-2">🟡</p>
-              <p className="text-2xl font-bold text-yellow-800">
-                {estadisticas.distribucion_riesgo.riesgo_moderado}
-              </p>
-              <p className="text-sm text-gray-600">Riesgo Moderado</p>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-4xl mb-2">🟢</p>
-              <p className="text-2xl font-bold text-green-800">
-                {estadisticas.distribucion_riesgo.seguras}
-              </p>
-              <p className="text-sm text-gray-600">Seguras</p>
-            </div>
+      {/* CONTROLES DE FILTRADO */}
+      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Ordenamiento */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Ordenar por
+            </label>
+            <select
+              value={ordenamiento}
+              onChange={(e) => setOrdenamiento(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="peligrosidad">Peligrosidad (Mayor a Menor)</option>
+              <option value="nombre">Nombre (A-Z)</option>
+              <option value="zona">Zona</option>
+            </select>
           </div>
-        </div>
-      )}
 
-      {/* TOP 5 - LAYOUT DE DOS COLUMNAS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* TOP 5 MÁS PELIGROSAS */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-            <span className="text-2xl mr-2">⚠️</span>
-            Top 5 Avenidas Más Peligrosas
-          </h2>
-          <div className="space-y-3">
-            {topPeligrosas.map((avenida, index) => (
-              <div
-                key={avenida.avenida_id}
-                className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 transition"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl font-bold text-red-800 w-8">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      {avenida.avenida_nombre}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {avenida.total_siniestros} siniestros, {avenida.total_delitos} delitos
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-red-800">
-                    {avenida.indice_peligrosidad.toFixed(1)}
-                  </p>
-                  <span className="text-xs px-2 py-1 bg-red-200 text-red-800 rounded">
-                    {avenida.clasificacion_riesgo}
-                  </span>
-                </div>
-              </div>
-            ))}
+          {/* Límite de resultados */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Mostrar
+            </label>
+            <select
+              value={limite || ''}
+              onChange={(e) => setLimite(e.target.value ? parseInt(e.target.value) : null)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Todas las avenidas</option>
+              <option value="10">Top 10</option>
+              <option value="20">Top 20</option>
+              <option value="5">Top 5</option>
+            </select>
           </div>
-        </div>
 
-        {/* TOP 5 MÁS SEGURAS */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-            <span className="text-2xl mr-2">✅</span>
-            Top 5 Avenidas Más Seguras
-          </h2>
-          <div className="space-y-3">
-            {topSeguras.map((avenida, index) => (
-              <div
-                key={avenida.avenida_id}
-                className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl font-bold text-green-800 w-8">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      {avenida.avenida_nombre}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {avenida.total_siniestros} siniestros, {avenida.total_delitos} delitos
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-800">
-                    {avenida.indice_peligrosidad.toFixed(1)}
-                  </p>
-                  <span className="text-xs px-2 py-1 bg-green-200 text-green-800 rounded">
-                    {avenida.clasificacion_riesgo}
-                  </span>
-                </div>
-              </div>
-            ))}
+          {/* Botón de comparación */}
+          <div className="flex items-end">
+            <button
+              onClick={() => setMostrarComparacion(!mostrarComparacion)}
+              className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <GitCompare className="w-4 h-4" />
+              Comparar Avenidas
+            </button>
           </div>
         </div>
       </div>
 
-      {/* TABLA COMPLETA DE TODAS LAS AVENIDAS */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">
-          📋 Todas las Avenidas - Detalle Completo
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full table-auto">
-            <thead>
-              <tr className="bg-gray-100 border-b-2 border-gray-200">
-                <th className="text-left p-3 font-semibold text-gray-700">#</th>
-                <th className="text-left p-3 font-semibold text-gray-700">Avenida</th>
-                <th className="text-left p-3 font-semibold text-gray-700">Zona</th>
-                <th className="text-center p-3 font-semibold text-gray-700">Siniestros</th>
-                <th className="text-center p-3 font-semibold text-gray-700">Delitos</th>
-                <th className="text-center p-3 font-semibold text-gray-700">Índice</th>
-                <th className="text-center p-3 font-semibold text-gray-700">Clasificación</th>
-              </tr>
-            </thead>
-            <tbody>
-              {todasAvenidas.map((avenida, index) => (
-                <tr
-                  key={avenida.avenida_id}
-                  className="border-b border-gray-200 hover:bg-gray-50 transition"
-                >
-                  <td className="p-3 text-gray-600">{index + 1}</td>
-                  <td className="p-3">
-                    <div>
-                      <p className="font-semibold text-gray-800">
-                        {avenida.avenida_nombre}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {avenida.tipo_via} • {avenida.longitud_km} km
-                      </p>
-                    </div>
-                  </td>
-                  <td className="p-3 text-gray-600">{avenida.zona}</td>
-                  <td className="p-3 text-center">
-                    <p className="font-semibold text-gray-800">
-                      {avenida.total_siniestros}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {avenida.total_fallecidos}💀 {avenida.total_heridos}🤕
-                    </p>
-                  </td>
-                  <td className="p-3 text-center">
-                    <p className="font-semibold text-gray-800">
-                      {avenida.total_delitos}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {avenida.total_robos}R {avenida.total_asaltos}A
-                    </p>
-                  </td>
-                  <td className="p-3 text-center">
-                    <p className="text-xl font-bold text-gray-800">
-                      {avenida.indice_peligrosidad.toFixed(1)}
-                    </p>
-                  </td>
-                  <td className="p-3 text-center">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${obtenerColorRiesgo(
-                        avenida.clasificacion_riesgo
-                      )}`}
-                    >
-                      <span className="mr-1">
-                        {obtenerEmoji(avenida.clasificacion_riesgo)}
-                      </span>
-                      {avenida.clasificacion_riesgo}
-                    </span>
-                  </td>
-                </tr>
+      {/* PANEL DE COMPARACIÓN (Condicional) */}
+      {mostrarComparacion && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <GitCompare className="w-5 h-5 text-purple-600" />
+            Comparar dos avenidas
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <select
+              value={avenida1}
+              onChange={(e) => setAvenida1(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="">Selecciona avenida 1</option>
+              {avenidas.map((av) => (
+                <option key={av.id} value={av.id}>
+                  {av.nombre}
+                </option>
               ))}
-            </tbody>
-          </table>
+            </select>
+
+            <select
+              value={avenida2}
+              onChange={(e) => setAvenida2(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="">Selecciona avenida 2</option>
+              {avenidas.map((av) => (
+                <option key={av.id} value={av.id}>
+                  {av.nombre}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={compararAvenidas}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Comparar
+            </button>
+          </div>
+
+          {/* Resultado de comparación */}
+          {resultadoComparacion && (
+            <div className="mt-4 p-4 bg-white rounded-lg">
+              <h4 className="font-semibold mb-2">Resultado:</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border-r border-gray-200 pr-4">
+                  <p className="font-medium text-blue-600">{resultadoComparacion.avenida_1?.nombre}</p>
+                  <p className="text-sm text-gray-600">
+                    Índice: {formatearIndice(resultadoComparacion.avenida_1?.indice_peligrosidad)}
+                  </p>
+                </div>
+                <div className="pl-4">
+                  <p className="font-medium text-blue-600">{resultadoComparacion.avenida_2?.nombre}</p>
+                  <p className="text-sm text-gray-600">
+                    Índice: {formatearIndice(resultadoComparacion.avenida_2?.indice_peligrosidad)}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-center text-green-700 font-medium">
+                {resultadoComparacion.mensaje || 'Comparación completada'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TOPS: Más seguras y más peligrosas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Top Más Seguras */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-green-800">
+            <Shield className="w-5 h-5" />
+            Top 5 Avenidas Más Seguras
+          </h3>
+          <div className="space-y-2">
+            {topSeguras.length > 0 ? (
+              topSeguras.map((av, index) => (
+                <div key={av.id} className="flex items-center justify-between bg-white p-3 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-green-600">#{index + 1}</span>
+                    <div>
+                      <p className="font-medium">{av.nombre}</p>
+                      <p className="text-sm text-gray-500">{av.zona}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-green-700">
+                    {formatearIndice(av.indice_peligrosidad || 0)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-4">No hay datos disponibles</p>
+            )}
+          </div>
+        </div>
+
+        {/* Top Más Peligrosas */}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-red-800">
+            <AlertTriangle className="w-5 h-5" />
+            Top 5 Avenidas Más Peligrosas
+          </h3>
+          <div className="space-y-2">
+            {topPeligrosas.length > 0 ? (
+              topPeligrosas.map((av, index) => (
+                <div key={av.id} className="flex items-center justify-between bg-white p-3 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-red-600">#{index + 1}</span>
+                    <div>
+                      <p className="font-medium">{av.nombre}</p>
+                      <p className="text-sm text-gray-500">{av.zona}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-red-700">
+                    {formatearIndice(av.indice_peligrosidad || 0)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-4">No hay datos disponibles</p>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* NOTA EXPLICATIVA */}
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-bold text-blue-900 mb-2">
-          ℹ️ Cómo se calcula el Índice de Seguridad
-        </h3>
-        <p className="text-blue-800 mb-4">
-          El índice combina dos factores principales con ponderación diferencial:
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="bg-white rounded p-4 border border-blue-300">
-            <p className="font-bold text-blue-900 mb-2">🚗 Siniestros Viales (70%)</p>
-            <ul className="list-disc list-inside text-blue-800 space-y-1">
-              <li>Cantidad de accidentes</li>
-              <li>Víctimas fatales (peso muy alto)</li>
-              <li>Heridos</li>
-              <li>Nivel de gravedad</li>
-            </ul>
-          </div>
-          <div className="bg-white rounded p-4 border border-blue-300">
-            <p className="font-bold text-blue-900 mb-2">🚨 Delitos (30%)</p>
-            <ul className="list-disc list-inside text-blue-800 space-y-1">
-              <li>Cantidad de delitos</li>
-              <li>Tipo (robo, asalto, hurto)</li>
-              <li>Nivel de peligrosidad</li>
-            </ul>
+      {/* TABLA PRINCIPAL: Todas las avenidas */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6">
+          <h3 className="text-lg font-semibold mb-4">
+            Índice de Seguridad por Avenida ({avenidas.length} resultados)
+          </h3>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Avenida
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Zona
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Siniestros
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Delitos
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Índice
+                  </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nivel de Riesgo
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {avenidas.length > 0 ? (
+                  avenidas.map((avenida) => (
+                    <tr key={avenida.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {avenida.nombre}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-600">
+                          {avenida.zona}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="text-sm text-gray-900">
+                          {avenida.total_siniestros || 0}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="text-sm text-gray-900">
+                          {avenida.total_delitos || 0}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="text-lg font-bold text-gray-900">
+                          {formatearIndice(avenida.indice_peligrosidad || 0)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex justify-center">
+                          <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getColorRiesgo(avenida.nivel_riesgo)}`}>
+                            {getIconoRiesgo(avenida.nivel_riesgo)}
+                            {avenida.nivel_riesgo?.replace('_', ' ').toUpperCase() || 'MEDIO'}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                      No hay datos disponibles
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-        <p className="text-blue-800 mt-4 text-xs">
-          <strong>Nota:</strong> El índice de peligrosidad es MAYOR cuanto más peligrosa es la avenida.
-          Un índice bajo indica mayor seguridad.
+      </div>
+
+      {/* PIE DE PÁGINA CON INFORMACIÓN */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          <strong>Nota:</strong> El índice de seguridad combina siniestros viales (70%) y reportes delictivos (30%). 
+          Valores más altos indican mayor peligrosidad. El sistema actualiza los datos en tiempo real.
         </p>
       </div>
     </div>
   );
 }
-
-export default RutaSegura;

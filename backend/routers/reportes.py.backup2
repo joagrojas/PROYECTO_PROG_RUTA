@@ -1,0 +1,292 @@
+"""
+Router de reportes
+Endpoints para estadísticas y análisis de siniestros
+"""
+
+from fastapi import APIRouter, Depends, Query
+from typing import List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+
+from config.database import get_db
+from services.auth import obtener_usuario_actual
+
+router = APIRouter(prefix="/reportes", tags=["Reportes"])
+
+# ========================================
+# RESUMEN GENERAL
+# ========================================
+@router.get("/resumen-general")
+async def resumen_general(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(obtener_usuario_actual)
+):
+    """Resumen general de siniestros"""
+    query = text("""
+        SELECT
+            COUNT(*) as total_siniestros,
+            COALESCE(SUM(victimas_fatales), 0) as total_victimas,
+            COALESCE(SUM(heridos), 0) as total_heridos,
+            COALESCE(SUM(num_vehiculos), 0) as total_vehiculos
+        FROM siniestros
+    """)
+    
+    result = await db.execute(query)
+    row = result.fetchone()
+    
+    return {
+        "total_siniestros": row.total_siniestros or 0,
+        "total_victimas": row.total_victimas or 0,
+        "total_heridos": row.total_heridos or 0,
+        "total_vehiculos": row.total_vehiculos or 0,
+        "siniestros_graves": 0  # Se calcula abajo
+    }
+
+# ========================================
+# SINIESTROS POR ZONA (AVENIDA)
+# ========================================
+@router.get("/siniestros-por-zona")
+async def siniestros_por_zona(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(obtener_usuario_actual)
+):
+    """Siniestros agrupados por zona (avenida)"""
+    query = text("""
+        SELECT
+            a.nombre as zona,
+            COUNT(s.id) as total_siniestros,
+            COALESCE(SUM(s.victimas_fatales), 0) as total_fallecidos,
+            COALESCE(SUM(s.heridos), 0) as total_heridos
+        FROM siniestros s
+        INNER JOIN avenidas a ON s.avenida_id = a.id
+        GROUP BY a.id, a.nombre
+        ORDER BY total_siniestros DESC
+    """)
+    
+    result = await db.execute(query)
+    rows = result.fetchall()
+    
+    return [
+        {
+            "zona": row.zona,
+            "total_siniestros": row.total_siniestros or 0,
+            "total_fallecidos": row.total_fallecidos or 0,
+            "total_heridos": row.total_heridos or 0
+        }
+        for row in rows
+    ]
+
+# ========================================
+# ESTADÍSTICAS POR TIPO DE SINIESTRO
+# ========================================
+@router.get("/estadisticas-por-tipo")
+async def estadisticas_por_tipo(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(obtener_usuario_actual)
+):
+    """Estadísticas de siniestros por tipo"""
+    query = text("""
+        SELECT
+            ts.nombre as tipo_siniestro,
+            COUNT(s.id) as cantidad,
+            COALESCE(SUM(s.victimas_fatales), 0) as fallecidos,
+            COALESCE(SUM(s.heridos), 0) as heridos
+        FROM siniestros s
+        INNER JOIN tipos_siniestro ts ON s.tipo_id = ts.id
+        GROUP BY ts.id, ts.nombre
+        ORDER BY cantidad DESC
+    """)
+    
+    result = await db.execute(query)
+    rows = result.fetchall()
+    
+    return [
+        {
+            "tipo_siniestro": row.tipo_siniestro,
+            "cantidad": row.cantidad or 0,
+            "fallecidos": row.fallecidos or 0,
+            "heridos": row.heridos or 0
+        }
+        for row in rows
+    ]
+
+# ========================================
+# SINIESTROS POR DÍA DE LA SEMANA
+# ========================================
+@router.get("/siniestros-por-dia-semana")
+async def siniestros_por_dia_semana(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(obtener_usuario_actual)
+):
+    """Siniestros agrupados por día de la semana"""
+    query = text("""
+        SELECT
+            CASE dia_semana
+                WHEN 0 THEN 'Lunes'
+                WHEN 1 THEN 'Martes'
+                WHEN 2 THEN 'Miércoles'
+                WHEN 3 THEN 'Jueves'
+                WHEN 4 THEN 'Viernes'
+                WHEN 5 THEN 'Sábado'
+                WHEN 6 THEN 'Domingo'
+                ELSE 'Desconocido'
+            END as dia_semana,
+            COUNT(s.id) as cantidad,
+            COALESCE(SUM(s.victimas_fatales), 0) as fallecidos
+        FROM siniestros s
+        WHERE s.dia_semana IS NOT NULL
+        GROUP BY s.dia_semana
+        ORDER BY s.dia_semana ASC
+    """)
+    
+    result = await db.execute(query)
+    rows = result.fetchall()
+    
+    return [
+        {
+            "dia_semana": row.dia_semana,
+            "cantidad": row.cantidad or 0,
+            "fallecidos": row.fallecidos or 0
+        }
+        for row in rows
+    ]
+
+# ========================================
+# PUNTOS CRÍTICOS (ZONAS CON MÁS SINIESTROS)
+# ========================================
+@router.get("/puntos-criticos")
+async def puntos_criticos(
+    limit: int = Query(5, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(obtener_usuario_actual)
+):
+    """Top de zonas críticas con más siniestros"""
+    query = text("""
+        SELECT
+            a.nombre as zona,
+            COUNT(s.id) as total_siniestros,
+            COALESCE(SUM(s.victimas_fatales), 0) as total_fallecidos,
+            COALESCE(SUM(s.heridos), 0) as total_heridos
+        FROM siniestros s
+        INNER JOIN avenidas a ON s.avenida_id = a.id
+        GROUP BY a.id, a.nombre
+        ORDER BY total_siniestros DESC
+        LIMIT :limit
+    """)
+    
+    result = await db.execute(query, {"limit": limit})
+    rows = result.fetchall()
+    
+    return [
+        {
+            "zona": row.zona,
+            "total_siniestros": row.total_siniestros or 0,
+            "total_fallecidos": row.total_fallecidos or 0,
+            "total_heridos": row.total_heridos or 0
+        }
+        for row in rows
+    ]
+
+# ========================================
+# ENDPOINT UNIFICADO (TODOS LOS DATOS)
+# ========================================
+@router.get("/estadisticas")
+async def obtener_estadisticas(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(obtener_usuario_actual)
+):
+    """Obtiene todas las estadísticas en una sola llamada (más eficiente)"""
+    
+    # Resumen general
+    query_resumen = text("""
+        SELECT
+            COUNT(*) as total_siniestros,
+            COALESCE(SUM(victimas_fatales), 0) as total_victimas,
+            COALESCE(SUM(heridos), 0) as total_heridos
+        FROM siniestros
+    """)
+    result_resumen = await db.execute(query_resumen)
+    row_resumen = result_resumen.fetchone()
+    
+    # Por zona
+    query_zona = text("""
+        SELECT
+            a.nombre as zona,
+            COUNT(s.id) as total_siniestros,
+            COALESCE(SUM(s.victimas_fatales), 0) as total_fallecidos
+        FROM siniestros s
+        INNER JOIN avenidas a ON s.avenida_id = a.id
+        GROUP BY a.id, a.nombre
+        ORDER BY total_siniestros DESC
+    """)
+    result_zona = await db.execute(query_zona)
+    por_zona = [
+        {
+            "zona": r.zona,
+            "total_siniestros": r.total_siniestros or 0,
+            "total_fallecidos": r.total_fallecidos or 0
+        }
+        for r in result_zona.fetchall()
+    ]
+    
+    # Por tipo
+    query_tipo = text("""
+        SELECT
+            ts.nombre as tipo_siniestro,
+            COUNT(s.id) as cantidad,
+            COALESCE(SUM(s.victimas_fatales), 0) as fallecidos,
+            COALESCE(SUM(s.heridos), 0) as heridos
+        FROM siniestros s
+        INNER JOIN tipos_siniestro ts ON s.tipo_id = ts.id
+        GROUP BY ts.id, ts.nombre
+        ORDER BY cantidad DESC
+    """)
+    result_tipo = await db.execute(query_tipo)
+    por_tipo = [
+        {
+            "tipo_siniestro": r.tipo_siniestro,
+            "cantidad": r.cantidad or 0,
+            "fallecidos": r.fallecidos or 0,
+            "heridos": r.heridos or 0
+        }
+        for r in result_tipo.fetchall()
+    ]
+    
+    # Por día
+    query_dia = text("""
+        SELECT
+            CASE dia_semana
+                WHEN 0 THEN 'Lunes'
+                WHEN 1 THEN 'Martes'
+                WHEN 2 THEN 'Miércoles'
+                WHEN 3 THEN 'Jueves'
+                WHEN 4 THEN 'Viernes'
+                WHEN 5 THEN 'Sábado'
+                WHEN 6 THEN 'Domingo'
+                ELSE 'Desconocido'
+            END as dia_semana,
+            COUNT(s.id) as cantidad,
+            COALESCE(SUM(s.victimas_fatales), 0) as fallecidos
+        FROM siniestros s
+        WHERE s.dia_semana IS NOT NULL
+        GROUP BY s.dia_semana
+        ORDER BY s.dia_semana ASC
+    """)
+    result_dia = await db.execute(query_dia)
+    por_dia = [
+        {
+            "dia_semana": r.dia_semana,
+            "cantidad": r.cantidad or 0,
+            "fallecidos": r.fallecidos or 0
+        }
+        for r in result_dia.fetchall()
+    ]
+    
+    return {
+        "total_siniestros": row_resumen.total_siniestros or 0,
+        "total_victimas": row_resumen.total_victimas or 0,
+        "total_heridos": row_resumen.total_heridos or 0,
+        "puntos_criticos": por_zona[:5],
+        "por_tipo": por_tipo,
+        "por_dia_semana": por_dia
+    }

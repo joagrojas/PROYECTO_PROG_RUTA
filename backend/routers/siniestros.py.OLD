@@ -40,14 +40,6 @@ def _sanitize_row(row: dict) -> dict:
         ss = total % 60
         r["hora"] = f"{hh:02d}:{mm:02d}:{ss:02d}"
 
-    # Si jsonable_encoder ya convirtió timedelta a número (segundos), normalizar también
-    if isinstance(hora, (int, float)):
-        total = int(hora)
-        hh = total // 3600
-        mm = (total % 3600) // 60
-        ss = total % 60
-        r["hora"] = f"{hh:02d}:{mm:02d}:{ss:02d}"
-
     # Si hora es número/otro formato, convertir a string seguro
     if r.get("hora") is not None and not isinstance(r.get("hora"), str):
         r["hora"] = str(r["hora"])
@@ -71,8 +63,7 @@ async def crear_siniestro(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permisos para crear siniestros"
         )
-    # Pasar el usuario_id del contexto
-    return await siniestros_service.crear_siniestro(db, siniestro, usuario_actual["id"])
+    return await siniestros_service.crear_siniestro(db, siniestro)
 
 
 @router.get("/", response_model=List[SiniestroOut])
@@ -89,9 +80,9 @@ async def listar_siniestros(
     raw = await siniestros_service.obtener_todos_siniestros(
         db, skip, limit, avenida_id, tipo_id, nivel_gravedad
     )
-    # Sanitizar antes de pasar por jsonable_encoder (evita que jsonable_encoder convierta timedelta->número)
-    items_saneados = [_sanitize_row(i) for i in raw]
-    return JSONResponse(content=jsonable_encoder(items_saneados))
+    items = jsonable_encoder(raw)
+    items_saneados = [_sanitize_row(i) for i in items]
+    return JSONResponse(content=items_saneados)
 
 
 @router.get("/count")
@@ -158,9 +149,9 @@ async def eliminar_siniestro(
 ):
     """Elimina un siniestro"""
     try:
-        # Extraer los datos necesarios del usuario
+        # ✅ CORREGIDO: Extraer los datos necesarios del usuario
         usuario_id = usuario.get("id")
-        es_admin = usuario.get("rol") == "admin"
+        es_admin = usuario.get("rol") == "admin"  # Basado en tu estructura de usuario
         
         if not usuario_id:
             raise HTTPException(
@@ -175,13 +166,13 @@ async def eliminar_siniestro(
             es_admin=es_admin
         )
         
-        if not success:
+        if success:
+            return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content={})
+        else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Siniestro no encontrado"
             )
-        # No retornar nada para 204 No Content
-        return None
             
     except PermissionError as e:
         raise HTTPException(

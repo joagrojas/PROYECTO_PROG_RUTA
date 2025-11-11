@@ -5,7 +5,7 @@ Consulta la vista v_indice_seguridad_avenidas para obtener el índice de segurid
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from typing import List, Dict, Optional
 
 
 # ========================================
